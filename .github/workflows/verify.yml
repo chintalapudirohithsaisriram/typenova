@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Generate npm lockfile when missing
+      - name: Generate npm lockfile when needed
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
       - name: Commit generated lockfile
@@ -28,11 +28,12 @@ jobs:
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "chore: add npm lockfile"
+            git commit -m "chore: sync npm lockfile"
             git push
           fi
 
       - run: npm ci --no-audit --no-fund
+      - run: npm run test
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
