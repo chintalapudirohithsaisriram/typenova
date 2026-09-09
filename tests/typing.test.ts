@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateStats, calculateWpm } from '@/lib/typing';
+import { calculateStats, calculateWpm, compareTypedText } from '@/lib/typing';
 
 test('WPM uses five characters per word', () => {
   assert.equal(calculateWpm(300, 60_000), 60);
@@ -26,6 +26,7 @@ test('all-correct typing has no error penalty', () => {
   assert.equal(stats.accuracy, 100);
   assert.equal(stats.grossWpm, 50);
   assert.equal(stats.netWpm, 50);
+  assert.equal(stats.consistency, 100);
 });
 
 test('invalid negative inputs cannot produce invalid metrics', () => {
@@ -34,4 +35,13 @@ test('invalid negative inputs cannot produce invalid metrics', () => {
   assert.equal(stats.incorrect, 0);
   assert.equal(stats.accuracy, 100);
   assert.equal(stats.netWpm, 0);
+});
+
+test('typed text comparison counts final character correctness', () => {
+  assert.deepEqual(compareTypedText('abcde', 'abXde'), { correct: 4, incorrect: 1 });
+});
+
+test('consistency rewards stable samples', () => {
+  assert.equal(calculateStats(300, 0, 60_000, [60, 60, 60]).consistency, 100);
+  assert.ok(calculateStats(300, 0, 60_000, [40, 80]).consistency < 100);
 });
