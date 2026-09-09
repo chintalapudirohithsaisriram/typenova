@@ -9,7 +9,28 @@ export type ProfileState = {
 };
 const KEY = 'typenova-profile-v2'; const DAY = 86_400_000;
 export const defaultProfile: ProfileState = { sessions: [], keyStats: {}, completedLessons: [], xp: 0, streak: 0, longestStreak: 0, lastPracticeDate: null, onboardingComplete: false, goal: 'speed', level: 'beginner', theme: 'system' };
-export function loadProfile(): ProfileState { if (typeof window === 'undefined') return defaultProfile; try { const raw = localStorage.getItem(KEY); return raw ? { ...defaultProfile, ...JSON.parse(raw) } as ProfileState : defaultProfile; } catch { return defaultProfile; } }
+
+export function loadProfile(): ProfileState {
+  if (typeof window === 'undefined') return defaultProfile;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return { ...defaultProfile, ...JSON.parse(raw) } as ProfileState;
+    const oldHistory = JSON.parse(localStorage.getItem('typenova-history') ?? '[]') as Array<{ date: string; wpm: number; accuracy: number; errors: number }>;
+    const oldLessons = JSON.parse(localStorage.getItem('typenova-lessons') ?? '[]') as string[];
+    const oldXp = Number(localStorage.getItem('typenova-xp') ?? 0);
+    const oldStreak = Number(localStorage.getItem('typenova-streak') ?? 0);
+    if (oldHistory.length || oldLessons.length || oldXp || oldStreak) {
+      const migrated: ProfileState = {
+        ...defaultProfile,
+        onboardingComplete: true,
+        sessions: oldHistory.map((item, index) => ({ id: `legacy-${index}`, date: item.date, durationMs: 60_000, wpm: item.wpm, rawWpm: item.wpm, accuracy: item.accuracy, errors: item.errors, correct: 0, incorrect: item.errors, mode: 'legacy' })),
+        completedLessons: oldLessons, xp: oldXp, streak: oldStreak, longestStreak: oldStreak,
+      };
+      saveProfile(migrated); return migrated;
+    }
+    return defaultProfile;
+  } catch { return defaultProfile; }
+}
 export function saveProfile(profile: ProfileState) { if (typeof window !== 'undefined') { try { localStorage.setItem(KEY, JSON.stringify(profile)); } catch {} } }
 function dateKey(value = new Date()) { return new Date(value).toISOString().slice(0, 10); }
 function updateStreak(profile: ProfileState, date = new Date()): Pick<ProfileState, 'streak' | 'longestStreak' | 'lastPracticeDate'> {
