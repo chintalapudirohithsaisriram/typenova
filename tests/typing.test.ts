@@ -5,6 +5,7 @@ import { calculateStats, calculateWpm, compareTypedText } from '@/lib/typing';
 test('WPM uses five characters per word', () => {
   assert.equal(calculateWpm(300, 60_000), 60);
   assert.equal(calculateWpm(150, 30_000), 60);
+  assert.equal(calculateWpm(250, 60_000), 50);
 });
 
 test('zero elapsed time is safe', () => {
@@ -21,6 +22,14 @@ test('accuracy and errors are bounded and deterministic', () => {
   assert.equal(stats.netWpm, 18);
 });
 
+test('corrected key errors affect net WPM without corrupting final accuracy', () => {
+  const stats = calculateStats(100, 0, 60_000, [], 8);
+  assert.equal(stats.accuracy, 100);
+  assert.equal(stats.grossWpm, 20);
+  assert.equal(stats.errors, 8);
+  assert.equal(stats.netWpm, 18.4);
+});
+
 test('all-correct typing has no error penalty', () => {
   const stats = calculateStats(250, 0, 60_000);
   assert.equal(stats.accuracy, 100);
@@ -30,9 +39,10 @@ test('all-correct typing has no error penalty', () => {
 });
 
 test('invalid negative inputs cannot produce invalid metrics', () => {
-  const stats = calculateStats(-5, -2, -100);
+  const stats = calculateStats(-5, -2, -100, [], -9);
   assert.equal(stats.correct, 0);
   assert.equal(stats.incorrect, 0);
+  assert.equal(stats.errors, 0);
   assert.equal(stats.accuracy, 100);
   assert.equal(stats.netWpm, 0);
 });
