@@ -1,19 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { calculateStats, compareTypedText, getErrorMap, type TypingStats } from '@/lib/typing';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTypingSession } from '@/lib/typing-session';
 import { TEST_PASSAGES } from '@/lib/typing-content';
+import { personalBests } from '@/lib/profile';
 import VirtualKeyboard from '@/components/VirtualKeyboard';
+import type { TypingStats } from '@/lib/typing';
 
 type ContentMode = 'passage' | 'words' | 'numbers' | 'punctuation' | 'custom';
-
-type Props = {
-  onComplete?: (stats: TypingStats, target: string, typed: string) => void;
-  initialDuration?: number;
-  initialMode?: ContentMode;
-  initialCustomText?: string;
-  compact?: boolean;
-};
+type Props = { onComplete?: (stats: TypingStats, target: string, typed: string) => void; initialDuration?: number; initialMode?: ContentMode; initialCustomText?: string; compact?: boolean };
 
 const DURATIONS = [15, 30, 60, 120, 300];
 const WORDS = 'the of and to in a is that for it as was with be by on not he i this are or his from at which but have an had they you one we all can her has there been if more when will would who so no time about out up into them then she many some these would like what make people know just your good other our day could write type practice'.split(' ');
@@ -32,177 +27,51 @@ export default function TypingTest({ onComplete, initialDuration = 60, initialMo
   const [duration, setDuration] = useState(initialDuration);
   const [mode, setMode] = useState<ContentMode>(initialMode);
   const [customText, setCustomText] = useState(initialCustomText);
-  const [value, setValue] = useState('');
-  const [running, setRunning] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [done, setDone] = useState(false);
-  const [mistakes, setMistakes] = useState(0);
-  const [bestWpm, setBestWpm] = useState(0);
-  const [samples, setSamples] = useState<number[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showKeyboard, setShowKeyboard] = useState(true);
   const [showFingerGuide, setShowFingerGuide] = useState(true);
-
+  const [bestWpm, setBestWpm] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const startedAtRef = useRef<number | null>(null);
-  const completedRef = useRef(false);
-  const lastSampleRef = useRef(0);
-  const mistakesRef = useRef(0);
-  const valueRef = useRef('');
   const target = useMemo(() => buildText(mode, customText), [mode, customText]);
-  const comparison = useMemo(() => compareTypedText(target, value), [target, value]);
-  const stats = useMemo(() => calculateStats(comparison.correct, comparison.incorrect, elapsed, samples, mistakes), [comparison, elapsed, samples, mistakes]);
-  const errors = useMemo(() => getErrorMap(target, value), [target, value]);
+  const session = useTypingSession({ target, durationMs: duration * 1000, completeOnTarget: true, onComplete: (stats, text, typed) => {
+    try { const previous = Number(localStorage.getItem('typenova-best-wpm') ?? 0); const next = Math.max(previous, stats.netWpm); localStorage.setItem('typenova-best-wpm', String(Math.round(next))); setBestWpm(next); } catch {}
+    onComplete?.(stats, text, typed);
+  }});
 
   useEffect(() => {
-    try { setBestWpm(Number(localStorage.getItem('typenova-best-wpm') ?? 0)); } catch {}
-  }, []);
-
-  const finish = useCallback((finalElapsed: number) => {
-    if (completedRef.current) return;
-    completedRef.current = true;
-    const typed = valueRef.current;
-    const finalComparison = compareTypedText(target, typed);
-    const finalStats = calculateStats(finalComparison.correct, finalComparison.incorrect, finalElapsed, samples, mistakesRef.current);
-    setElapsed(finalElapsed);
-    setRunning(false);
-    setDone(true);
-    const record = Math.max(0, finalStats.netWpm);
-    setBestWpm((current) => {
-      const next = Math.max(current, record);
-      try { localStorage.setItem('typenova-best-wpm', String(Math.round(next))); } catch {}
-      return next;
-    });
-    onComplete?.(finalStats, target, typed);
-  }, [onComplete, samples, target]);
-
-  useEffect(() => {
-    if (!running || startedAtRef.current === null) return;
-    const tick = () => {
-      const startedAt = startedAtRef.current ?? Date.now();
-      const nextElapsed = Math.min(Date.now() - startedAt, duration * 1000);
-      setElapsed(nextElapsed);
-      if (nextElapsed - lastSampleRef.current >= 500) {
-        lastSampleRef.current = nextElapsed;
-        const current = compareTypedText(target, valueRef.current);
-        setSamples((items) => [...items, calculateStats(current.correct, current.incorrect, Math.max(1, nextElapsed)).grossWpm]);
-      }
-      if (nextElapsed >= duration * 1000) finish(nextElapsed);
-    };
-    tick();
-    const id = window.setInterval(tick, 50);
-    return () => window.clearInterval(id);
-  }, [duration, finish, running, target]);
-
-  const reset = useCallback(() => {
-    startedAtRef.current = null;
-    completedRef.current = false;
-    lastSampleRef.current = 0;
-    mistakesRef.current = 0;
-    valueRef.current = '';
-    setValue('');
-    setElapsed(0);
-    setMistakes(0);
-    setSamples([]);
-    setDone(false);
-    setRunning(false);
+    session.reset();
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+    // Reset intentionally follows a content/duration change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, duration]);
+  useEffect(() => { try { setBestWpm(Number(localStorage.getItem('typenova-best-wpm') ?? 0)); } catch {} }, []);
 
-  const startOnFirstKey = useCallback(() => {
-    const now = Date.now();
-    startedAtRef.current = now;
-    completedRef.current = false;
-    lastSampleRef.current = 0;
-    setRunning(true);
-    setElapsed(0);
-  }, []);
+  const topErrors = Object.entries(session.errors).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const minutes = Math.floor(session.elapsedMs / 60_000);
+  const seconds = Math.floor((session.elapsedMs % 60_000) / 1000);
 
-  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (done) return;
-
-    if (event.ctrlKey || event.metaKey || event.altKey) {
-      if (event.key.toLowerCase() === 'v' || event.key.toLowerCase() === 'c' || event.key.toLowerCase() === 'x' || event.key.toLowerCase() === 'a') {
-        event.preventDefault();
-      }
-      return;
-    }
-
-    if (event.key === 'Tab' || event.key === 'Enter' || event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'Home' || event.key === 'End') {
-      event.preventDefault();
-      return;
-    }
-
-    if (event.key === 'Backspace') {
-      event.preventDefault();
-      if (valueRef.current.length) {
-        valueRef.current = valueRef.current.slice(0, -1);
-        setValue(valueRef.current);
-      }
-      return;
-    }
-
-    if (event.key.length !== 1) return;
-    event.preventDefault();
-    if (!running && !startedAtRef.current) startOnFirstKey();
-
-    const expected = target[valueRef.current.length];
-    if (event.key !== expected) {
-      mistakesRef.current += 1;
-      setMistakes(mistakesRef.current);
-    }
-
-    valueRef.current += event.key;
-    setValue(valueRef.current);
-
-    if (valueRef.current.length >= target.length) {
-      const started = startedAtRef.current ?? Date.now();
-      finish(Math.min(Date.now() - started, duration * 1000));
-    }
-  };
-
-  const preventClipboard = (event: React.ClipboardEvent<HTMLInputElement>) => event.preventDefault();
-  const preventDrop = (event: React.DragEvent<HTMLInputElement>) => event.preventDefault();
-
-  const progress = Math.min(100, target.length ? (value.length / target.length) * 100 : 0);
-  const currentChar = target[value.length] ?? '';
-  const topErrors = Object.entries(errors).sort((a, b) => b[1] - a[1]).slice(0, 4);
-
-  return (
-    <section className={`test-card ${compact ? 'compact' : ''}`} aria-labelledby="typing-test-title">
-      <div className="test-top">
-        <div>
-          <span className="eyebrow">Typing lab</span>
-          <h2 id="typing-test-title">Find your flow.</h2>
-          <p className="muted">Physical-keyboard input only. Honest metrics, live feedback, and a clear next step.</p>
-        </div>
-        <div className="test-toolbar">
-          <div className="duration-row" aria-label="Test duration">
-            {DURATIONS.map((d) => <button key={d} className={duration === d ? 'chip active' : 'chip'} onClick={() => { setDuration(d); reset(); }}>{d < 60 ? `${d}s` : `${d / 60}m`}</button>)}
-          </div>
-          <button className="icon-button" aria-label="Open test settings" onClick={() => setShowSettings((open) => !open)}>{showSettings ? '×' : '•••'}</button>
-        </div>
-      </div>
-
-      {showSettings && <div className="test-settings" aria-label="Typing test settings">
-        <label>Content<select value={mode} onChange={(event) => { setMode(event.target.value as ContentMode); reset(); }}><option value="passage">Passages</option><option value="words">Common words</option><option value="numbers">Numbers</option><option value="punctuation">Punctuation</option><option value="custom">Custom text</option></select></label>
-        {mode === 'custom' && <label className="wide">Custom text<textarea value={customText} onChange={(event) => setCustomText(event.target.value)} placeholder="Enter a passage you want to practice…" /></label>}
-        <div className="guide-controls"><button className={showKeyboard ? 'chip active' : 'chip'} onClick={() => setShowKeyboard((current) => !current)}>Keyboard {showKeyboard ? 'on' : 'off'}</button><button className={showFingerGuide ? 'chip active' : 'chip'} onClick={() => setShowFingerGuide((current) => !current)}>Finger guide {showFingerGuide ? 'on' : 'off'}</button></div>
-      </div>}
-
-      {done ? <div className="result-panel">
-        <div className="result-heading"><span className="eyebrow">Test complete</span><h3>{Math.round(stats.netWpm)} WPM. Now turn the result into progress.</h3></div>
-        <div className="result-grid"><div className="result-primary"><strong>{Math.round(stats.netWpm)}</strong><span>Net WPM</span></div><div><strong>{Math.round(stats.grossWpm)}</strong><span>Raw WPM</span></div><div><strong>{Math.round(stats.accuracy)}%</strong><span>Accuracy</span></div><div><strong>{Math.round(stats.consistency)}%</strong><span>Consistency</span></div><div><strong>{stats.errors}</strong><span>Key errors</span></div><div><strong>{stats.correct}</strong><span>Correct chars</span></div></div>
-        <div className="result-insight"><strong>TypeNova Coach</strong><span>{topErrors.length ? `Most common target errors: ${topErrors.map(([key, count]) => `${key.toUpperCase()} ×${count}`).join(', ')}.` : 'Clean run. Your next opportunity is controlled speed.'}</span></div>
-        <div className="result-actions"><button className="primary" onClick={reset}>Retake test</button><span>{Math.round(stats.netWpm) > Math.round(bestWpm) ? 'Personal best unlocked.' : `Personal best: ${Math.round(bestWpm)} WPM`}</span></div>
-      </div> : <>
-        <div className="metrics"><div><strong>{Math.round(stats.netWpm)}</strong><span>WPM</span></div><div><strong>{Math.round(stats.accuracy)}%</strong><span>Accuracy</span></div><div><strong>{mistakes}</strong><span>Errors</span></div><div><strong>{Math.max(0, duration - Math.floor(elapsed / 1000))}s</strong><span>Remaining</span></div><div><strong>{Math.round(stats.consistency)}%</strong><span>Consistency</span></div></div>
-        <div className="progress-track" aria-label={`${Math.round(progress)} percent complete`}><span style={{ width: `${progress}%` }} /></div>
-        <div className="prompt" aria-label="Typing text">{[...target].map((char, index) => <span key={`${index}-${char}`} className={index < value.length ? (value[index] === char ? 'correct' : 'incorrect') : index === value.length ? 'current' : ''}>{char}</span>)}</div>
-        <input ref={inputRef} className="typing-input" value={value} onChange={() => {}} onKeyDown={onKeyDown} onPaste={preventClipboard} onCopy={preventClipboard} onCut={preventClipboard} onDrop={preventDrop} onDragOver={preventDrop} aria-label="Type the text above using your physical keyboard" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} inputMode="text" />
-        {showKeyboard && <VirtualKeyboard targetKey={currentChar} showFingerGuide={showFingerGuide} />}
-        <div className="test-actions"><button className="primary" onClick={reset}>{running ? 'Restart' : 'Start typing'}</button><span>{running ? `Next key: ${currentChar === ' ' ? 'Space' : currentChar || 'done'}` : 'Your timer starts on the first physical character.'}</span></div>
-      </>}
-    </section>
-  );
+  return <section className={`test-card ${compact ? 'compact' : ''}`} aria-labelledby="typing-test-title">
+    <div className="test-top">
+      <div><span className="eyebrow">Typing lab</span><h2 id="typing-test-title">Measure. Learn. Improve.</h2><p className="muted">A dedicated typing engine with honest metrics and no paste shortcuts.</p></div>
+      <div className="test-toolbar"><div className="duration-row" aria-label="Test duration">{DURATIONS.map((value) => <button key={value} className={duration === value ? 'chip active' : 'chip'} onClick={() => setDuration(value)}>{value < 60 ? `${value}s` : `${value / 60}m`}</button>)}</div><button className="icon-button" aria-label="Open test settings" onClick={() => setShowSettings((value) => !value)}>{showSettings ? '×' : '•••'}</button></div>
+    </div>
+    {showSettings && <div className="test-settings" aria-label="Typing test settings">
+      <label>Content<select value={mode} onChange={(event) => setMode(event.target.value as ContentMode)}><option value="passage">Passages</option><option value="words">Common words</option><option value="numbers">Numbers</option><option value="punctuation">Punctuation</option><option value="custom">Custom text</option></select></label>
+      {mode === 'custom' && <label className="wide">Custom text<textarea value={customText} onChange={(event) => setCustomText(event.target.value)} placeholder="Enter a passage to practice…" /></label>}
+      <div className="guide-controls"><button className={showKeyboard ? 'chip active' : 'chip'} onClick={() => setShowKeyboard((value) => !value)}>Keyboard {showKeyboard ? 'on' : 'off'}</button><button className={showFingerGuide ? 'chip active' : 'chip'} onClick={() => setShowFingerGuide((value) => !value)}>Finger guide {showFingerGuide ? 'on' : 'off'}</button></div>
+    </div>}
+    {session.done ? <div className="result-panel">
+      <div className="result-heading"><span className="eyebrow">Test complete</span><h3>{Math.round(session.stats.netWpm)} WPM · {Math.round(session.stats.accuracy)}% accuracy</h3><p className="muted">{minutes}:{String(seconds).padStart(2, '0')} elapsed · {session.stats.correct + session.stats.incorrect} characters typed.</p></div>
+      <div className="result-grid"><div className="result-primary"><strong>{Math.round(session.stats.netWpm)}</strong><span>Net WPM</span></div><div><strong>{Math.round(session.stats.grossWpm)}</strong><span>Raw WPM</span></div><div><strong>{Math.round(session.stats.accuracy)}%</strong><span>Accuracy</span></div><div><strong>{Math.round(session.stats.consistency)}%</strong><span>Consistency</span></div><div><strong>{session.stats.errors}</strong><span>Key errors</span></div><div><strong>{session.stats.correct}</strong><span>Correct chars</span></div></div>
+      <div className="result-insight"><strong>Next best step</strong><span>{topErrors.length ? `Practice ${topErrors.map(([key]) => key.toUpperCase()).join(' + ')} for a few minutes before retesting.` : 'Your accuracy is clean. Add a short speed burst and protect the same control.'}</span></div>
+      <div className="result-actions"><button className="primary" onClick={session.reset}>Try again</button><span>{Math.round(session.stats.netWpm) >= Math.round(bestWpm) ? `Personal best · ${Math.round(session.stats.netWpm)} WPM` : `Personal best · ${Math.round(bestWpm)} WPM`}</span></div>
+    </div> : <>
+      <div className="metrics"><div><strong>{Math.round(session.stats.netWpm)}</strong><span>WPM</span></div><div><strong>{Math.round(session.stats.accuracy)}%</strong><span>Accuracy</span></div><div><strong>{session.mistakes}</strong><span>Errors</span></div><div><strong>{Math.max(0, duration - Math.floor(session.elapsedMs / 1000))}s</strong><span>Remaining</span></div><div><strong>{Math.round(session.stats.consistency)}%</strong><span>Consistency</span></div></div>
+      <div className="progress-track" aria-label={`${Math.round(session.progress)} percent complete`}><span style={{ width: `${session.progress}%` }} /></div>
+      <div className="prompt" aria-label="Typing text">{[...target].map((char, index) => <span key={`${index}-${char}`} className={index < session.value.length ? (session.value[index] === char ? 'correct' : 'incorrect') : index === session.value.length ? 'current' : ''}>{char}</span>)}</div>
+      <input ref={inputRef} className="typing-input" value={session.value} onChange={() => {}} onKeyDown={session.handleKeyDown} onPaste={(event) => event.preventDefault()} onCopy={(event) => event.preventDefault()} onCut={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()} onDragOver={(event) => event.preventDefault()} aria-label="Type the text above using your physical keyboard" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} inputMode="text" />
+      {showKeyboard && <VirtualKeyboard targetKey={session.currentChar} showFingerGuide={showFingerGuide} />}
+      <div className="test-actions"><button className="primary" onClick={session.reset}>{session.running ? 'Restart' : 'Start typing'}</button><span>{session.running ? `Next key: ${session.currentChar === ' ' ? 'Space' : session.currentChar || 'done'}` : 'Timer starts with your first physical character.'}</span></div>
+    </>}
+  </section>;
 }
