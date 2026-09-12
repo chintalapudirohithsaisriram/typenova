@@ -24,18 +24,6 @@ function Brand({ onClick }: { onClick: () => void }) {
   return <button className="brand brand-button" onClick={onClick} aria-label="TypeNova home"><span className="brand-mark">T</span><span>TypeNova</span></button>;
 }
 
-function Onboarding({ onFinish }: { onFinish: (level: ProfileState['level'], goal: ProfileState['goal']) => void }) {
-  const [level, setLevel] = useState<ProfileState['level']>('beginner');
-  const [goal, setGoal] = useState<ProfileState['goal']>('learn');
-  return <div className="onboarding-backdrop"><section className="onboarding" aria-labelledby="welcome-title">
-    <span className="eyebrow">Welcome to TypeNova</span><h1 id="welcome-title">Know exactly where to start.</h1>
-    <p>Choose your starting point. You can change direction later. No account is required.</p>
-    <div className="choice-group"><strong>Current level</strong><div className="choice-grid">{(['beginner','intermediate','advanced'] as const).map((item) => <button key={item} className={level === item ? 'choice active' : 'choice'} onClick={() => setLevel(item)}><b>{item[0].toUpperCase() + item.slice(1)}</b><span>{item === 'beginner' ? 'I am learning touch typing' : item === 'intermediate' ? 'I can touch type already' : 'I want higher performance'}</span></button>)}</div></div>
-    <div className="choice-group"><strong>What do you want first?</strong><div className="choice-grid">{([['learn','Learn from the beginning'],['speed','Improve speed'],['accuracy','Fix accuracy'],['exam','Measure typing performance'],['casual','Practice casually']] as const).map(([key, label]) => <button key={key} className={goal === key ? 'choice active' : 'choice'} onClick={() => setGoal(key)}>{label}</button>)}</div></div>
-    <button className="primary wide-button" onClick={() => onFinish(level, goal)}>Start TypeNova</button><small>Your progress stays on this device.</small>
-  </section></div>;
-}
-
 function Dashboard({ profile, onGo }: { profile: ProfileState; onGo: (view: View) => void }) {
   const best = personalBests(profile);
   const weak = weakestKeys(profile, 4);
@@ -43,7 +31,7 @@ function Dashboard({ profile, onGo }: { profile: ProfileState; onGo: (view: View
   const hasHistory = profile.sessions.length > 0;
   const recent = profile.sessions.slice(-8);
   const recentAvg = recent.length ? recent.reduce((sum, item) => sum + item.wpm, 0) / recent.length : 0;
-  const firstAction = weak.length ? 'practice' : profile.completedLessons.length ? 'learn' : 'learn';
+  const firstAction: View = weak.length ? 'practice' : profile.completedLessons.length ? 'learn' : 'learn';
   return <>
     <section className="hero dashboard-hero">
       <div className="hero-copy">
@@ -122,10 +110,8 @@ export default function Home() {
   const [view, setView] = useState<View>('home'); const [focus, setFocus] = useState(false); const [profile, setProfile] = useState<ProfileState>(defaultProfile); const [hydrated, setHydrated] = useState(false); const [showKeyboard, setShowKeyboard] = useState(true); const [showFingerGuide, setShowFingerGuide] = useState(true);
   useEffect(() => { const loaded = loadProfile(); setProfile(loaded); setHydrated(true); document.documentElement.dataset.theme = loaded.theme === 'dark' ? 'dark' : loaded.theme === 'light' ? 'light' : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.motion = loaded.animations ? 'on' : 'off'; document.documentElement.dataset.fontScale = loaded.fontScale; }, []);
   const go = (next: View) => { setView(next); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const handleProfile = (level: ProfileState['level'], goal: ProfileState['goal']) => { const next = { ...profile, level, goal, onboardingComplete: true }; setProfile(next); saveProfile(next); };
   const record = (stats: TypingStats, target: string, typed: string, mode: string) => setProfile((current) => { const keyed = recordKeyPerformance(current, target, typed); return addSession(keyed, { durationMs: stats.elapsedMs, wpm: stats.netWpm, rawWpm: stats.grossWpm, accuracy: stats.accuracy, errors: stats.errors, correct: stats.correct, incorrect: stats.incorrect, typed: stats.typed, consistency: stats.consistency, mode }); });
   if (!hydrated) return <main className="app-loading"><span className="brand-mark">T</span><p>Preparing your typing workspace…</p></main>;
-  if (!profile.onboardingComplete) return <Onboarding onFinish={handleProfile} />;
   if (focus) return <main className="focus-shell"><div className="focus-bar"><Brand onClick={() => setFocus(false)} /><span className="focus-title">Focus mode · {coachMessage(profile)}</span><button className="ghost" onClick={() => setFocus(false)}>Exit focus</button></div><TypingTest compact onComplete={(stats, target, typed) => record(stats, target, typed, 'focus')} /></main>;
   return <main><header className="nav"><Brand onClick={() => go('home')} /><nav className="desktop-nav" aria-label="Main navigation">{nav.map((item) => <button key={item.view} className={view === item.view ? 'nav-link active' : 'nav-link'} onClick={() => go(item.view)}>{item.label}</button>)}</nav><div className="nav-actions"><button className="ghost focus-nav" onClick={() => setFocus(true)}>Focus</button><button className="icon-button" onClick={() => go('settings')} aria-label="Open settings">Settings</button></div></header><div className="mobile-nav" aria-label="Mobile navigation">{nav.map((item) => <button key={item.view} className={view === item.view ? 'mobile-nav-link active' : 'mobile-nav-link'} onClick={() => go(item.view)}>{item.label}</button>)}</div>{view === 'home' && <Dashboard profile={profile} onGo={go} />}{view === 'learn' && <Learn profile={profile} setProfile={setProfile} showKeyboard={showKeyboard} showFingerGuide={showFingerGuide} setShowKeyboard={setShowKeyboard} setShowFingerGuide={setShowFingerGuide} />}{view === 'practice' && <Practice profile={profile} onComplete={record} onGoTest={() => go('test')} />}{view === 'test' && <Test profile={profile} onComplete={record} />}{view === 'games' && <Games onComplete={record} />}{view === 'challenges' && <Challenges profile={profile} />}{view === 'stats' && <Stats profile={profile} />}{view === 'settings' && <Settings profile={profile} setProfile={setProfile} />}<footer className="footer"><span>TypeNova · Learn → Practice → Test → Analyze → Improve</span><span>Local-first · English typing</span></footer></main>;
 }
