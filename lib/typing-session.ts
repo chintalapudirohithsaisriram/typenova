@@ -20,6 +20,7 @@ export type TypingSession = {
   progress: number;
   reset: () => void;
   handleKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  handleInputValue: (nextValue: string) => void;
 };
 
 export function useTypingSession({ target, durationMs = 60_000, completeOnTarget = false, onComplete }: TypingSessionOptions): TypingSession {
@@ -29,25 +30,29 @@ export function useTypingSession({ target, durationMs = 60_000, completeOnTarget
   const [done, setDone] = useState(false);
   const [mistakes, setMistakes] = useState(0);
   const [samples, setSamples] = useState<number[]>([]);
+  const [historicalErrors, setHistoricalErrors] = useState<Record<string, number>>({});
   const startedAtRef = useRef<number | null>(null);
   const valueRef = useRef('');
   const mistakesRef = useRef(0);
   const completedRef = useRef(false);
   const sampleAtRef = useRef(0);
   const targetRef = useRef(target);
+  const samplesRef = useRef<number[]>([]);
+  const onCompleteRef = useRef(onComplete);
   targetRef.current = target;
+  onCompleteRef.current = onComplete;
 
   const finish = useCallback((finalElapsed: number) => {
     if (completedRef.current) return;
     completedRef.current = true;
     const typed = valueRef.current;
     const comparison = compareTypedText(targetRef.current, typed);
-    const finalStats = calculateStats(comparison.correct, comparison.incorrect, finalElapsed, samples, mistakesRef.current);
+    const finalStats = calculateStats(comparison.correct, comparison.incorrect, finalElapsed, samplesRef.current, mistakesRef.current);
     setElapsedMs(finalElapsed);
     setRunning(false);
     setDone(true);
-    onComplete?.(finalStats, targetRef.current, typed);
-  }, [onComplete, samples]);
+    onCompleteRef.current?.(finalStats, targetRef.current, typed);
+  }, []);
 
   useEffect(() => {
     if (!running || startedAtRef.current === null) return;
@@ -57,7 +62,9 @@ export function useTypingSession({ target, durationMs = 60_000, completeOnTarget
       if (elapsed - sampleAtRef.current >= 500) {
         sampleAtRef.current = elapsed;
         const comparison = compareTypedText(targetRef.current, valueRef.current);
-        setSamples((current) => [...current, calculateStats(comparison.correct, comparison.incorrect, Math.max(1, elapsed)).grossWpm]);
+        const sample = calculateStats(comparison.correct, comparison.incorrect, Math.max(1, elapsed)).grossWpm;
+        samplesRef.current = [...samplesRef.current, sample];
+        setSamples(samplesRef.current);
       }
       if (elapsed >= durationMs) finish(elapsed);
     };
@@ -66,19 +73,57 @@ export function useTypingSession({ target, durationMs = 60_000, completeOnTarget
     return () => window.clearInterval(timer);
   }, [durationMs, finish, running]);
 
-  const reset = useCallback(() => {
-    startedAtRef.current = null;
-    valueRef.current = '';
-    mistakesRef.current = 0;
+  const startIfNeeded = useCallback(() => {
+    if (startedAtRef.current !== null || done) return;
+    startedAtRef.current = Date.now();
     completedRef.current = false;
-    sampleAtRef.current = 0;
-    setValue('');
+    setRunning(true);
     setElapsedMs(0);
-    setRunning(false);
-    setDone(false);
-    setMistakes(0);
-    setSamples([]);
-  }, []);
+  }, [done]);
+
+  const appendCharacters = useCallback((characters: string) => {
+    if (done) return;
+    startIfNeeded();
+    let nextValue = valueRef.current;
+    let nextMistakes = mistakesRef.current;
+    const nextErrors = { ...historicalErrors };
+    for (const char of characters) {
+      if (char.length !== 1) continue;
+      const expected = targetRef.current[nextValue.length];
+      if (char !== expected) {
+        nextMistakes += 1;
+        const key = (expected ?? char).toLowerCase();
+        nextErrors[key] = (nextErrors[key] ?? 0) + 1;
+      }
+      nextValue += char;
+      if (completeOnTarget && nextValue.length >= targetRef.current.length) break;
+    }
+    valueRef.current = nextValue;
+    mistakesRef.current = nextMistakes;
+    setValue(nextValue);
+    setMistakes(nextMistakes);
+    setHistoricalErrors(nextErrors);
+    if (completeOnTarget && nextValue.length >= targetRef.current.length) {
+      finish(Math.min(Date.now() - (startedAtRef.current ?? Date.now()), durationMs));
+    }
+  }, [completeOnTarget, done, finish, historicalErrors, startIfNeeded, durationMs]);
+
+  const removeCharacter = useCallback(() => {
+    if (done) return;
+    valueRef.current = valueRef.current.slice(0, -1);
+    setValue(valueRef.current);
+  }, [done]);
+
+  const handleInputValue = useCallback((nextValue: string) => {
+    if (done) return;
+    const current = valueRef.current;
+    if (nextValue.length < current.length) {
+      valueRef.current = nextValue;
+      setValue(nextValue);
+      return;
+    }
+    if (nextValue.length > current.length) appendCharacters(nextValue.slice(current.length));
+  }, [appendCharacters, done]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (done) return;
@@ -92,33 +137,33 @@ export function useTypingSession({ target, durationMs = 60_000, completeOnTarget
     }
     if (event.key === 'Backspace') {
       event.preventDefault();
-      valueRef.current = valueRef.current.slice(0, -1);
-      setValue(valueRef.current);
+      removeCharacter();
       return;
     }
     if (event.key.length !== 1) return;
     event.preventDefault();
-    if (!running && !startedAtRef.current) {
-      startedAtRef.current = Date.now();
-      completedRef.current = false;
-      setRunning(true);
-      setElapsedMs(0);
-    }
-    const expected = targetRef.current[valueRef.current.length];
-    if (event.key !== expected) {
-      mistakesRef.current += 1;
-      setMistakes(mistakesRef.current);
-    }
-    valueRef.current += event.key;
-    setValue(valueRef.current);
-    if (completeOnTarget && valueRef.current.length >= targetRef.current.length) {
-      finish(Math.min(Date.now() - (startedAtRef.current ?? Date.now()), durationMs));
-    }
-  }, [completeOnTarget, done, durationMs, finish, running]);
+    appendCharacters(event.key);
+  }, [appendCharacters, done, removeCharacter]);
+
+  const reset = useCallback(() => {
+    startedAtRef.current = null;
+    valueRef.current = '';
+    mistakesRef.current = 0;
+    completedRef.current = false;
+    sampleAtRef.current = 0;
+    samplesRef.current = [];
+    setValue('');
+    setElapsedMs(0);
+    setRunning(false);
+    setDone(false);
+    setMistakes(0);
+    setSamples([]);
+    setHistoricalErrors({});
+  }, []);
 
   const comparison = useMemo(() => compareTypedText(target, value), [target, value]);
   const stats = useMemo(() => calculateStats(comparison.correct, comparison.incorrect, elapsedMs, samples, mistakes), [comparison, elapsedMs, mistakes, samples]);
-  const errors = useMemo(() => getErrorMap(target, value), [target, value]);
+  const errors = useMemo(() => historicalErrors, [historicalErrors]);
 
   return {
     value,
@@ -132,5 +177,6 @@ export function useTypingSession({ target, durationMs = 60_000, completeOnTarget
     progress: target.length ? Math.min(100, (value.length / target.length) * 100) : 0,
     reset,
     handleKeyDown,
+    handleInputValue,
   };
 }
