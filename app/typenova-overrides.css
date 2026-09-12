@@ -40,6 +40,27 @@
 .lesson-start-note { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0; padding:12px 14px; border:1px solid var(--line); border-radius:13px; background:var(--surface-2); font-size:12px; }
 .lesson-start-note span { color:var(--muted); flex:1; }
 .lesson-start-note .secondary { padding:7px 10px; font-size:12px; }
+
+/* Product cleanup: start directly in the app; no forced level/goal questionnaire. */
+.onboarding-backdrop { display:none !important; }
+
+/* Make the live typing passage feel like individual keyboard characters. */
+.prompt { display:flex; flex-wrap:wrap; align-content:flex-start; gap:6px 4px; line-height:1.4; }
+.prompt span { min-width:1.55em; height:1.9em; display:inline-grid; place-items:center; padding:0 .22em; border:1px solid var(--line); border-radius:7px; background:var(--surface); box-shadow:0 1px 0 color-mix(in srgb,var(--line) 70%,transparent); transition:background .12s ease,border-color .12s ease,color .12s ease,transform .12s ease; }
+.prompt .correct { color:var(--ink); background:var(--surface); border-color:color-mix(in srgb,var(--accent-strong) 38%,var(--line)); }
+.prompt .incorrect { color:var(--danger); background:color-mix(in srgb,var(--danger) 10%,var(--surface)); border-color:color-mix(in srgb,var(--danger) 45%,var(--line)); text-decoration:none; }
+.prompt .current { background:var(--accent); color:var(--ink); border-color:var(--accent-strong); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent); transform:translateY(-1px); }
+
+/* Completed-test character cells stay compact and readable instead of becoming one long text strip. */
+.character-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(56px,1fr)); gap:6px; max-height:460px; overflow:auto; padding:4px; }
+.character-result { min-height:62px; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr; gap:2px; align-items:center; padding:7px; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
+.character-result small { grid-column:1 / -1; color:var(--muted); font:600 9px var(--mono); }
+.character-result strong { font:700 16px var(--mono); }
+.character-result span { justify-self:end; font:700 14px var(--mono); }
+.character-result.correct { border-color:color-mix(in srgb,var(--accent-strong) 38%,var(--line)); background:color-mix(in srgb,var(--accent) 8%,var(--surface)); }
+.character-result.incorrect { border-color:color-mix(in srgb,var(--danger) 45%,var(--line)); background:color-mix(in srgb,var(--danger) 8%,var(--surface)); }
+.character-result.untyped { opacity:.72; }
+
 @media (max-width: 900px) {
   .dashboard-hero { grid-template-columns:1fr; }
   .hero-orbit { min-height:300px; }
@@ -67,9 +88,11 @@
   .test-top { flex-direction:column; }
   .test-steps { border-radius:14px; }
   .test-explainer { grid-template-columns:1fr; }
-  .prompt { min-height:150px; padding:17px; font-size:17px; line-height:1.9; }
+  .prompt { min-height:150px; padding:17px; font-size:17px; line-height:1.9; gap:5px 3px; }
+  .prompt span { min-width:1.45em; height:1.8em; }
   .test-actions { align-items:flex-start; flex-direction:column; }
   .keyboard-row { gap:3px; }
   .key { min-height:38px; font-size:12px; }
   .key small { display:none; }
+  .character-grid { grid-template-columns:repeat(4,1fr); max-height:360px; }
 }
