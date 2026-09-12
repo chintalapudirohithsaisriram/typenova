@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTypingSession } from '@/lib/typing-session';
 import { TEST_PASSAGES } from '@/lib/typing-content';
-import { personalBests } from '@/lib/profile';
 import VirtualKeyboard from '@/components/VirtualKeyboard';
 import type { TypingStats } from '@/lib/typing';
 
