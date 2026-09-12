@@ -20,6 +20,7 @@ export type TypingSession = {
   reset: () => void;
   handleKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   handleInputValue: (nextValue: string) => void;
+  handleVirtualKey: (key: string) => void;
 };
 
 export function useTypingSession({ target, completeOnTarget = false, onComplete }: TypingSessionOptions): TypingSession {
@@ -37,6 +38,7 @@ export function useTypingSession({ target, completeOnTarget = false, onComplete 
   const sampleAtRef = useRef(0);
   const targetRef = useRef(target);
   const samplesRef = useRef<number[]>([]);
+  const historicalErrorsRef = useRef<Record<string, number>>({});
   const onCompleteRef = useRef(onComplete);
   targetRef.current = target;
   onCompleteRef.current = onComplete;
@@ -60,7 +62,6 @@ export function useTypingSession({ target, completeOnTarget = false, onComplete 
     const tick = () => {
       const elapsed = Math.max(0, Date.now() - (startedAtRef.current ?? Date.now()));
       setElapsedMs(elapsed);
-
       if (elapsed - sampleAtRef.current >= 500) {
         sampleAtRef.current = elapsed;
         const comparison = compareTypedText(targetRef.current, valueRef.current);
@@ -69,7 +70,6 @@ export function useTypingSession({ target, completeOnTarget = false, onComplete 
         setSamples(samplesRef.current);
       }
     };
-
     tick();
     const timer = window.setInterval(tick, 50);
     return () => window.clearInterval(timer);
@@ -84,51 +84,54 @@ export function useTypingSession({ target, completeOnTarget = false, onComplete 
   }, [done]);
 
   const appendCharacters = useCallback((characters: string) => {
-    if (done) return;
+    if (done || !characters) return;
     startIfNeeded();
     let nextValue = valueRef.current;
     let nextMistakes = mistakesRef.current;
-    const nextErrors = { ...historicalErrors };
+    const nextErrors = { ...historicalErrorsRef.current };
+    const targetChars = [...targetRef.current];
 
-    for (const char of characters) {
-      if (char.length !== 1) continue;
-      const expected = [...targetRef.current][nextValue.length];
+    for (const char of [...characters]) {
+      const expected = targetChars[[...nextValue].length];
+      if (expected === undefined) break;
       if (char !== expected) {
         nextMistakes += 1;
-        const key = (expected ?? char).toLowerCase();
+        const key = expected.toLowerCase();
         nextErrors[key] = (nextErrors[key] ?? 0) + 1;
       }
       nextValue += char;
-      if (completeOnTarget && [...nextValue].length >= [...targetRef.current].length) break;
+      if (completeOnTarget && [...nextValue].length >= targetChars.length) break;
     }
 
     valueRef.current = nextValue;
     mistakesRef.current = nextMistakes;
+    historicalErrorsRef.current = nextErrors;
     setValue(nextValue);
     setMistakes(nextMistakes);
     setHistoricalErrors(nextErrors);
 
-    if (completeOnTarget && [...nextValue].length >= [...targetRef.current].length) {
+    if (completeOnTarget && [...nextValue].length >= targetChars.length) {
       finish(Math.max(0, Date.now() - (startedAtRef.current ?? Date.now())));
     }
-  }, [completeOnTarget, done, finish, historicalErrors, startIfNeeded]);
+  }, [completeOnTarget, done, finish, startIfNeeded]);
 
   const removeCharacter = useCallback(() => {
-    if (done) return;
-    valueRef.current = valueRef.current.slice(0, -1);
+    if (done || !valueRef.current) return;
+    valueRef.current = [...valueRef.current].slice(0, -1).join('');
     setValue(valueRef.current);
   }, [done]);
 
   const handleInputValue = useCallback((nextValue: string) => {
     if (done) return;
     const current = valueRef.current;
+    if (nextValue === current) return;
     if (nextValue.length < current.length) {
       valueRef.current = nextValue;
       setValue(nextValue);
       return;
     }
-    const delta = nextValue.slice(current.length);
-    if (delta.length === 1) appendCharacters(delta);
+    const delta = nextValue.startsWith(current) ? nextValue.slice(current.length) : nextValue;
+    appendCharacters(delta);
   }, [appendCharacters, done]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -151,6 +154,11 @@ export function useTypingSession({ target, completeOnTarget = false, onComplete 
     appendCharacters(event.key);
   }, [appendCharacters, done, removeCharacter]);
 
+  const handleVirtualKey = useCallback((key: string) => {
+    if (key === 'Backspace') removeCharacter();
+    else if ([...key].length === 1) appendCharacters(key);
+  }, [appendCharacters, removeCharacter]);
+
   const reset = useCallback(() => {
     startedAtRef.current = null;
     valueRef.current = '';
@@ -158,6 +166,7 @@ export function useTypingSession({ target, completeOnTarget = false, onComplete 
     completedRef.current = false;
     sampleAtRef.current = 0;
     samplesRef.current = [];
+    historicalErrorsRef.current = {};
     setValue('');
     setElapsedMs(0);
     setRunning(false);
@@ -169,6 +178,8 @@ export function useTypingSession({ target, completeOnTarget = false, onComplete 
 
   const comparison = useMemo(() => compareTypedText(target, value), [target, value]);
   const stats = useMemo(() => calculateStats(comparison.correct, comparison.incorrect, elapsedMs, samples, mistakes), [comparison, elapsedMs, mistakes, samples]);
+  const targetChars = useMemo(() => [...target], [target]);
+  const valueChars = useMemo(() => [...value], [value]);
 
   return {
     value,
@@ -178,10 +189,11 @@ export function useTypingSession({ target, completeOnTarget = false, onComplete 
     mistakes,
     stats,
     errors: historicalErrors,
-    currentChar: [...target][value.length] ?? '',
-    progress: [...target].length ? Math.min(100, ([...value].length / [...target].length) * 100) : 0,
+    currentChar: targetChars[valueChars.length] ?? '',
+    progress: targetChars.length ? Math.min(100, (valueChars.length / targetChars.length) * 100) : 0,
     reset,
     handleKeyDown,
     handleInputValue,
+    handleVirtualKey,
   };
 }
