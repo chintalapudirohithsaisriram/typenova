@@ -1,13 +1,5 @@
 export type Lesson = {
-  id: string;
-  level: number;
-  title: string;
-  description: string;
-  targetKeys: string[];
-  finger: string;
-  exercise: string;
-  goalWpm: number;
-  goalAccuracy: number;
+  id: string; level: number; title: string; description: string; targetKeys: string[]; finger: string; exercise: string; goalWpm: number; goalAccuracy: number;
 };
 
 export const TEST_PASSAGES = [
@@ -45,20 +37,15 @@ export const LESSONS: Lesson[] = [
 ];
 
 export const FINGER_BY_KEY: Record<string, string> = {
-  '`':'left pinky','1':'left pinky','q':'left pinky','a':'left pinky','z':'left pinky',
-  '2':'left ring','w':'left ring','s':'left ring','x':'left ring',
-  '3':'left middle','e':'left middle','d':'left middle','c':'left middle',
-  '4':'left index','5':'left index','r':'left index','t':'left index','f':'left index','g':'left index','v':'left index','b':'left index',
-  '6':'right index','7':'right index','y':'right index','u':'right index','h':'right index','j':'right index','n':'right index','m':'right index',
-  '8':'right middle','i':'right middle','k':'right middle',',':'right middle',
-  '9':'right ring','o':'right ring','l':'right ring','.':'right ring',
-  '0':'right pinky','p':'right pinky',';':'right pinky','/':'right pinky',
-  ' ':'thumbs',
+  '`':'left pinky','1':'left pinky','q':'left pinky','a':'left pinky','z':'left pinky','2':'left ring','w':'left ring','s':'left ring','x':'left ring',
+  '3':'left middle','e':'left middle','d':'left middle','c':'left middle','4':'left index','5':'left index','r':'left index','t':'left index','f':'left index','g':'left index','v':'left index','b':'left index',
+  '6':'right index','7':'right index','y':'right index','u':'right index','h':'right index','j':'right index','n':'right index','m':'right index','8':'right middle','i':'right middle','k':'right middle',',':'right middle',
+  '9':'right ring','o':'right ring','l':'right ring','.':'right ring','0':'right pinky','p':'right pinky',';':'right pinky','/':'right pinky',' ':'thumbs',
 };
 
 export const KEYBOARD_ROWS = [
+  ['1','2','3','4','5','6','7','8','9','0'],
   ['q','w','e','r','t','y','u','i','o','p'],
   ['a','s','d','f','g','h','j','k','l',';'],
   ['z','x','c','v','b','n','m',',','.','/'],
-  ['1','2','3','4','5','6','7','8','9','0'],
 ];
