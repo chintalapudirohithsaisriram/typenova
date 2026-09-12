@@ -16,7 +16,7 @@ export default function LessonPractice({ lesson, showKeyboard, showFingerGuide, 
   }, [lesson.id]);
   const accuracy = Math.round(session.stats.accuracy);
   const wpm = Math.round(session.stats.netWpm);
-  const passed = session.done && session.value.length >= lesson.exercise.length && accuracy >= lesson.goalAccuracy && wpm >= lesson.goalWpm;
+  const passed = session.done && [...session.value].length >= [...lesson.exercise].length && accuracy >= lesson.goalAccuracy && wpm >= lesson.goalWpm;
   const finger = FINGER_BY_KEY[session.currentChar.toLowerCase()] ?? lesson.finger;
   const retry = () => { session.reset(); requestAnimationFrame(() => inputRef.current?.focus()); onRetry(); };
   const focus = () => requestAnimationFrame(() => inputRef.current?.focus());
@@ -26,10 +26,10 @@ export default function LessonPractice({ lesson, showKeyboard, showFingerGuide, 
     <div className="progress-track"><span style={{ width: `${session.progress}%` }} /></div>
     {!session.done ? <>
       <div className="lesson-start-note"><strong>Ready?</strong><span>Type the highlighted exercise at your own pace. The clock starts on your first key and measures the session precisely.</span><button className="secondary" onClick={focus}>Focus typing area</button></div>
-      <div className="prompt lesson-prompt" aria-label="Lesson typing text">{[...lesson.exercise].map((char, index) => <span key={`${index}-${char}`} className={index < session.value.length ? (session.value[index] === char ? 'correct' : 'incorrect') : index === session.value.length ? 'current' : ''}>{char}</span>)}</div>
+      <div className="prompt lesson-prompt" aria-label="Lesson typing text">{[...lesson.exercise].map((char, index) => { const typedChar = [...session.value][index]; return <span key={`${index}-${char}`} className={index < [...session.value].length ? typedChar === char ? 'correct' : 'incorrect' : index === [...session.value].length ? 'current' : ''}>{char}</span>; })}</div>
       <input ref={inputRef} className="typing-input lesson-input" value={session.value} onChange={(event) => session.handleInputValue(event.target.value)} onKeyDown={session.handleKeyDown} onPaste={(event) => event.preventDefault()} onCopy={(event) => event.preventDefault()} onCut={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()} onDragOver={(event) => event.preventDefault()} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} inputMode="text" aria-label={`Practice ${lesson.title}`} />
       <div className="lesson-live-guide"><span>Next key <strong>{session.currentChar === ' ' ? 'Space' : session.currentChar || '—'}</strong></span><span>Finger <strong>{finger}</strong></span><span>{session.running ? `${Math.floor(session.elapsedMs / 60_000)}:${String(Math.floor((session.elapsedMs % 60_000) / 1000)).padStart(2, '0')} active` : 'Ready'}</span></div>
-      {showKeyboard && <VirtualKeyboard targetKey={session.currentChar || lesson.targetKeys[0]} showFingerGuide={showFingerGuide} />}
+      {showKeyboard && <VirtualKeyboard targetKey={session.currentChar || lesson.targetKeys[0]} showFingerGuide={showFingerGuide} onKeySelect={session.handleVirtualKey} />}
     </> : <div className={`lesson-result ${passed ? 'passed' : 'retry'}`}>
       <span className="eyebrow">{passed ? 'Lesson mastered' : 'Keep practicing'}</span>
       <h3>{passed ? 'You cleared both mastery gates.' : 'You finished the exercise, but the gate is not cleared yet.'}</h3>
