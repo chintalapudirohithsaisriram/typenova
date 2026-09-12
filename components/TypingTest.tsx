@@ -7,7 +7,7 @@ import VirtualKeyboard from '@/components/VirtualKeyboard';
 import type { TypingStats } from '@/lib/typing';
 
 type ContentMode = 'passage' | 'words' | 'numbers' | 'punctuation' | 'custom';
-type Props = { onComplete?: (stats: TypingStats, target: string, typed: string) => void; initialMode?: ContentMode; initialCustomText?: string; compact?: boolean };
+type Props = { onComplete?: (stats: TypingStats, target: string, typed: string) => void; initialDuration?: number; initialMode?: ContentMode; initialCustomText?: string; compact?: boolean };
 
 const MODES: Array<{ id: ContentMode; label: string; detail: string }> = [
   { id: 'passage', label: 'Passage', detail: 'Natural text' },
