@@ -6,6 +6,7 @@ export type TypingStats = {
   grossWpm: number;
   netWpm: number;
   accuracy: number;
+  realAccuracy: number;
   errorRate: number;
   errors: number;
   consistency: number;
@@ -55,6 +56,9 @@ export function calculateStats(
   const grossWpm = calculateWpm(typed, elapsed);
   const netWpm = calculateNetWpm(grossWpm, errors, elapsed);
   const accuracy = typed ? clamp((right / typed) * 100, 0, 100) : 0;
+  // Real accuracy keeps historical corrections visible instead of rewarding a
+  // mistake that was later hidden by backspace/correction.
+  const realAccuracy = typed ? clamp(((typed - errors) / typed) * 100, 0, 100) : 0;
   const errorRate = typed ? clamp((errors / typed) * 100, 0, 100) : 0;
 
   return {
@@ -65,6 +69,7 @@ export function calculateStats(
     grossWpm,
     netWpm,
     accuracy,
+    realAccuracy,
     errorRate,
     errors,
     consistency: calculateConsistency(samples.length ? samples : [grossWpm]),
