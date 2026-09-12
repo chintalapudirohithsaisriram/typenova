@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { calculateStats, compareTypedText, type TypingStats } from '@/lib/typing';
+import { calculateStats, calculateWpm, compareTypedText, type TypingStats } from '@/lib/typing';
 
 export type TypingSessionOptions = {
   target: string;
-  /** undefined means unlimited time; the session ends when the target is completed. */
-  durationMs?: number;
   completeOnTarget?: boolean;
   onComplete?: (stats: TypingStats, target: string, typed: string) => void;
 };
@@ -19,13 +17,12 @@ export type TypingSession = {
   errors: Record<string, number>;
   currentChar: string;
   progress: number;
-  remainingMs: number | null;
   reset: () => void;
   handleKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   handleInputValue: (nextValue: string) => void;
 };
 
-export function useTypingSession({ target, durationMs, completeOnTarget = false, onComplete }: TypingSessionOptions): TypingSession {
+export function useTypingSession({ target, completeOnTarget = false, onComplete }: TypingSessionOptions): TypingSession {
   const [value, setValue] = useState('');
   const [elapsedMs, setElapsedMs] = useState(0);
   const [running, setRunning] = useState(false);
@@ -49,7 +46,9 @@ export function useTypingSession({ target, durationMs, completeOnTarget = false,
     completedRef.current = true;
     const typed = valueRef.current;
     const comparison = compareTypedText(targetRef.current, typed);
-    const finalStats = calculateStats(comparison.correct, comparison.incorrect, finalElapsed, samplesRef.current, mistakesRef.current);
+    const finalSample = finalElapsed > 0 ? calculateWpm(typed.length, finalElapsed) : 0;
+    const finalSamples = finalSample > 0 ? [...samplesRef.current, finalSample] : samplesRef.current;
+    const finalStats = calculateStats(comparison.correct, comparison.incorrect, finalElapsed, finalSamples, mistakesRef.current);
     setElapsedMs(finalElapsed);
     setRunning(false);
     setDone(true);
@@ -59,8 +58,7 @@ export function useTypingSession({ target, durationMs, completeOnTarget = false,
   useEffect(() => {
     if (!running || startedAtRef.current === null) return;
     const tick = () => {
-      const rawElapsed = Date.now() - (startedAtRef.current ?? Date.now());
-      const elapsed = durationMs !== undefined ? Math.min(rawElapsed, Math.max(0, durationMs)) : Math.max(0, rawElapsed);
+      const elapsed = Math.max(0, Date.now() - (startedAtRef.current ?? Date.now()));
       setElapsedMs(elapsed);
 
       if (elapsed - sampleAtRef.current >= 500) {
@@ -70,14 +68,12 @@ export function useTypingSession({ target, durationMs, completeOnTarget = false,
         samplesRef.current = [...samplesRef.current, sample];
         setSamples(samplesRef.current);
       }
-
-      if (durationMs !== undefined && elapsed >= Math.max(0, durationMs)) finish(elapsed);
     };
 
     tick();
     const timer = window.setInterval(tick, 50);
     return () => window.clearInterval(timer);
-  }, [durationMs, finish, running]);
+  }, [running]);
 
   const startIfNeeded = useCallback(() => {
     if (startedAtRef.current !== null || done) return;
@@ -96,14 +92,14 @@ export function useTypingSession({ target, durationMs, completeOnTarget = false,
 
     for (const char of characters) {
       if (char.length !== 1) continue;
-      const expected = targetRef.current[nextValue.length];
+      const expected = [...targetRef.current][nextValue.length];
       if (char !== expected) {
         nextMistakes += 1;
         const key = (expected ?? char).toLowerCase();
         nextErrors[key] = (nextErrors[key] ?? 0) + 1;
       }
       nextValue += char;
-      if (completeOnTarget && nextValue.length >= targetRef.current.length) break;
+      if (completeOnTarget && [...nextValue].length >= [...targetRef.current].length) break;
     }
 
     valueRef.current = nextValue;
@@ -112,7 +108,7 @@ export function useTypingSession({ target, durationMs, completeOnTarget = false,
     setMistakes(nextMistakes);
     setHistoricalErrors(nextErrors);
 
-    if (completeOnTarget && nextValue.length >= targetRef.current.length) {
+    if (completeOnTarget && [...nextValue].length >= [...targetRef.current].length) {
       finish(Math.max(0, Date.now() - (startedAtRef.current ?? Date.now())));
     }
   }, [completeOnTarget, done, finish, historicalErrors, startIfNeeded]);
@@ -131,8 +127,6 @@ export function useTypingSession({ target, durationMs, completeOnTarget = false,
       setValue(nextValue);
       return;
     }
-    // Mobile keyboards normally add exactly one character. Reject multi-character
-    // inserts so paste/autofill cannot distort WPM or error counts.
     const delta = nextValue.slice(current.length);
     if (delta.length === 1) appendCharacters(delta);
   }, [appendCharacters, done]);
@@ -175,7 +169,6 @@ export function useTypingSession({ target, durationMs, completeOnTarget = false,
 
   const comparison = useMemo(() => compareTypedText(target, value), [target, value]);
   const stats = useMemo(() => calculateStats(comparison.correct, comparison.incorrect, elapsedMs, samples, mistakes), [comparison, elapsedMs, mistakes, samples]);
-  const remainingMs = durationMs === undefined ? null : Math.max(0, durationMs - elapsedMs);
 
   return {
     value,
@@ -185,9 +178,8 @@ export function useTypingSession({ target, durationMs, completeOnTarget = false,
     mistakes,
     stats,
     errors: historicalErrors,
-    currentChar: target[value.length] ?? '',
-    progress: target.length ? Math.min(100, (value.length / target.length) * 100) : 0,
-    remainingMs,
+    currentChar: [...target][value.length] ?? '',
+    progress: [...target].length ? Math.min(100, ([...value].length / [...target].length) * 100) : 0,
     reset,
     handleKeyDown,
     handleInputValue,
