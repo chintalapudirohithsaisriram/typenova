@@ -60,6 +60,7 @@ export function calculateStats(
   // mistake that was later hidden by backspace/correction.
   const realAccuracy = typed ? clamp(((typed - errors) / typed) * 100, 0, 100) : 0;
   const errorRate = typed ? clamp((errors / typed) * 100, 0, 100) : 0;
+  const consistency = typed ? calculateConsistency(samples.length ? samples : [grossWpm]) : 0;
 
   return {
     elapsedMs: elapsed,
@@ -72,7 +73,7 @@ export function calculateStats(
     realAccuracy,
     errorRate,
     errors,
-    consistency: calculateConsistency(samples.length ? samples : [grossWpm]),
+    consistency,
   };
 }
 
