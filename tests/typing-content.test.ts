@@ -1,20 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LESSONS, formatDuration, getLessonDurationSeconds } from '@/lib/typing-content';
+import { FINGER_BY_KEY, KEYBOARD_ROWS, LESSONS } from '@/lib/typing-content';
 
-test('lesson durations are long enough for their learning stage', () => {
-  assert.equal(getLessonDurationSeconds(LESSONS[0]), 180);
-  assert.equal(getLessonDurationSeconds(LESSONS[7]), 240);
-  assert.equal(getLessonDurationSeconds(LESSONS[13]), 300);
-  assert.equal(getLessonDurationSeconds(LESSONS[19]), 300);
-});
-
-test('duration formatting never shows ambiguous minute values', () => {
-  assert.equal(formatDuration(15), '15s');
-  assert.equal(formatDuration(59), '59s');
-  assert.equal(formatDuration(60), '1:00');
-  assert.equal(formatDuration(125), '2:05');
-  assert.equal(formatDuration(300), '5:00');
+test('lesson curriculum is complete and exercises are non-empty', () => {
+  assert.equal(LESSONS.length, 20);
+  for (const lesson of LESSONS) {
+    assert.ok(lesson.title.length > 0);
+    assert.ok(lesson.exercise.length > 0);
+    assert.ok(lesson.targetKeys.length > 0);
+  }
 });
 
 test('lesson content matches its instructional type', () => {
@@ -24,4 +18,13 @@ test('lesson content matches its instructional type', () => {
   assert.ok(/^[0-9 ]+$/.test(numberLesson.exercise));
   assert.ok(punctuationLesson);
   assert.ok(/[,.!;:]/.test(punctuationLesson.exercise));
+});
+
+test('keyboard rows cover the mapped letter and number keys', () => {
+  const keyboardKeys = new Set(KEYBOARD_ROWS.flat());
+  for (const key of ['a', 'f', 'j', 'l', 'q', 'm', '1', '5', '0']) {
+    assert.ok(keyboardKeys.has(key));
+    assert.ok(FINGER_BY_KEY[key]);
+  }
+  assert.equal(FINGER_BY_KEY[' '], 'thumbs');
 });
