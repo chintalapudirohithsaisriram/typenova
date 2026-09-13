@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import './typenova-overrides.css';
+import './progress-navigation.css';
 
 export const metadata: Metadata = {
   title: 'TypeNova — Typing Practice, Tests & Personalized Training',
