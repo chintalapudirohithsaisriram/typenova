@@ -40,18 +40,12 @@
 .lesson-start-note { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0; padding:12px 14px; border:1px solid var(--line); border-radius:13px; background:var(--surface-2); font-size:12px; }
 .lesson-start-note span { color:var(--muted); flex:1; }
 .lesson-start-note .secondary { padding:7px 10px; font-size:12px; }
-
-/* Product cleanup: start directly in the app; no forced level/goal questionnaire. */
 .onboarding-backdrop { display:none !important; }
-
-/* Make the live typing passage feel like individual keyboard characters. */
 .prompt { display:flex; flex-wrap:wrap; align-content:flex-start; gap:6px 4px; line-height:1.4; }
 .prompt span { min-width:1.55em; height:1.9em; display:inline-grid; place-items:center; padding:0 .22em; border:1px solid var(--line); border-radius:7px; background:var(--surface); box-shadow:0 1px 0 color-mix(in srgb,var(--line) 70%,transparent); transition:background .12s ease,border-color .12s ease,color .12s ease,transform .12s ease; }
 .prompt .correct { color:var(--ink); background:var(--surface); border-color:color-mix(in srgb,var(--accent-strong) 38%,var(--line)); }
-.prompt .incorrect { color:var(--danger); background:color-mix(in srgb,var(--danger) 10%,var(--surface)); border-color:color-mix(in srgb,var(--danger) 45%,var(--line)); text-decoration:none; }
+.prompt .incorrect { color:var(--danger); background:color-mix(in srgb,var(--danger) 10%,var(--surface)); border-color:color-mix(in srgb,var(--danger) 45%,var(--line)); }
 .prompt .current { background:var(--accent); color:var(--ink); border-color:var(--accent-strong); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent); transform:translateY(-1px); }
-
-/* Completed-test character cells stay compact and readable instead of becoming one long text strip. */
 .character-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(56px,1fr)); gap:6px; max-height:460px; overflow:auto; padding:4px; }
 .character-result { min-height:62px; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr; gap:2px; align-items:center; padding:7px; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
 .character-result small { grid-column:1 / -1; color:var(--muted); font:600 9px var(--mono); }
@@ -61,7 +55,24 @@
 .character-result.incorrect { border-color:color-mix(in srgb,var(--danger) 45%,var(--line)); background:color-mix(in srgb,var(--danger) 8%,var(--surface)); }
 .character-result.untyped { opacity:.72; }
 
-@media (max-width: 900px) {
+/* TypeNova layout pass: keep the path close, give typing the main width, and reduce copy-heavy sidebars. */
+.learning-layout { grid-template-columns:minmax(205px,220px) minmax(0,1fr); gap:10px; }
+.curriculum { position:sticky; top:86px; max-height:calc(100vh - 105px); overflow:auto; }
+.practice-layout.practice-free-area { display:block; }
+.practice-free-area .test-card { width:100%; margin-bottom:24px; }
+.practice-free-area .test-top p { max-width:520px; }
+.lesson-stage { min-width:0; padding:24px; }
+.lesson-prompt { min-height:180px; width:100%; font-size:clamp(1.25rem,2vw,2rem); cursor:text; }
+.lesson-input { width:100%; min-height:44px; }
+.lesson-practice-card { min-width:0; }
+.practice-tabs { margin-bottom:12px; }
+/* Keep Progress as the user-facing name in compact/mobile navigation too. */
+.nav-link:last-child,.mobile-nav-link:last-child { font-size:0; }
+.nav-link:last-child::after,.mobile-nav-link:last-child::after { content:'Progress'; font-size:inherit; }
+.focus-shell .test-card { max-width:1400px; margin:0 auto; border-radius:0; box-shadow:none; }
+.focus-title { flex:1; color:var(--muted); font-size:13px; font-weight:700; }
+
+@media (max-width:900px) {
   .dashboard-hero { grid-template-columns:1fr; }
   .hero-orbit { min-height:300px; }
   .stats-strip { grid-template-columns:repeat(3,1fr); }
@@ -73,7 +84,7 @@
   .learn-heading,.test-heading { align-items:flex-start; flex-direction:column; }
   .course-progress { text-align:left; }
 }
-@media (max-width: 640px) {
+@media (max-width:640px) {
   .desktop-nav,.focus-nav { display:none; }
   .mobile-nav { display:flex; }
   .nav { height:64px; }
@@ -95,4 +106,5 @@
   .key { min-height:38px; font-size:12px; }
   .key small { display:none; }
   .character-grid { grid-template-columns:repeat(4,1fr); max-height:360px; }
+  .lesson-stage { padding:16px; }
 }
