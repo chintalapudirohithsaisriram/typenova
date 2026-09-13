@@ -1,0 +1,2 @@
+.nav-link:last-child,.mobile-nav-link:last-child { font-size:inherit; }
+.nav-link:last-child::after,.mobile-nav-link:last-child::after { content:none; }
