@@ -24,14 +24,14 @@ export default function LessonPractice({ lesson, showKeyboard, showFingerGuide, 
   useEffect(() => {
     const handleWindowKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLButtonElement || event.target instanceof HTMLSelectElement) return;
+      if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLSelectElement || event.target instanceof HTMLTextAreaElement) return;
       if (event.key === 'Backspace' || event.key.length === 1) {
         event.preventDefault();
         session.handleKeyDown(event as unknown as React.KeyboardEvent<HTMLInputElement>);
       }
     };
-    window.addEventListener('keydown', handleWindowKey);
-    return () => window.removeEventListener('keydown', handleWindowKey);
+    window.addEventListener('keydown', handleWindowKey, true);
+    return () => window.removeEventListener('keydown', handleWindowKey, true);
   }, [session.handleKeyDown]);
 
   const accuracy = Math.round(session.stats.accuracy);
@@ -45,10 +45,12 @@ export default function LessonPractice({ lesson, showKeyboard, showFingerGuide, 
     <div className="lesson-goal-line"><span>Unlimited · type freely</span><span>Mastery: {lesson.goalAccuracy}% accuracy · {lesson.goalWpm} WPM</span></div>
     <div className="progress-track"><span style={{ width: `${session.progress}%` }} /></div>
     {!session.done ? <>
-      <div className="lesson-start-note"><strong>Type here</strong><span>Click the typing area or press any character key. There is no countdown or time limit.</span><button className="secondary" onClick={focus}>Focus typing area</button></div>
-      <div className="prompt lesson-prompt" role="textbox" tabIndex={0} onPointerDown={(event) => { event.preventDefault(); focus(); }} aria-label="Lesson typing text" aria-describedby="lesson-input-help">{[...lesson.exercise].map((char, index) => { const typedChar = [...session.value][index]; return <span key={`${index}-${char}`} className={index < [...session.value].length ? typedChar === char ? 'correct' : 'incorrect' : index === [...session.value].length ? 'current' : ''}>{char}</span>; })}</div>
-      <p id="lesson-input-help" className="sr-only">Typing is unlimited. The highlighted character is the next key.</p>
-      <input ref={inputRef} className="typing-input lesson-input" value={session.value} onChange={(event) => session.handleInputValue(event.target.value)} onKeyDown={session.handleKeyDown} onPaste={(event) => event.preventDefault()} onCopy={(event) => event.preventDefault()} onCut={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()} onDragOver={(event) => event.preventDefault()} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} inputMode="text" aria-label={`Type ${lesson.title}`} />
+      <div className="lesson-start-note"><strong>Type here</strong><span>Click the text or press any character key. No countdown.</span><button className="secondary" onClick={focus}>Focus typing area</button></div>
+      <div className="lesson-typing-surface">
+        <div className="prompt lesson-prompt" role="textbox" tabIndex={0} onPointerDown={(event) => { event.preventDefault(); focus(); }} aria-label="Lesson typing text" aria-describedby="lesson-input-help">{[...lesson.exercise].map((char, index) => { const typedChar = [...session.value][index]; return <span key={`${index}-${char}`} className={index < [...session.value].length ? typedChar === char ? 'correct' : 'incorrect' : index === [...session.value].length ? 'current' : ''}>{char}</span>; })}</div>
+        <input ref={inputRef} className="typing-input lesson-input" value={session.value} onChange={(event) => session.handleInputValue(event.target.value)} onKeyDown={session.handleKeyDown} onPaste={(event) => event.preventDefault()} onCopy={(event) => event.preventDefault()} onCut={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()} onDragOver={(event) => event.preventDefault()} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} inputMode="text" aria-label={`Type ${lesson.title}`} />
+      </div>
+      <p id="lesson-input-help" className="sr-only">Type directly into the highlighted text. Typing is unlimited.</p>
       <div className="lesson-live-guide" aria-live="polite"><span>Next key <strong>{session.currentChar === ' ' ? 'Space' : session.currentChar || '—'}</strong></span><span>Finger <strong>{finger}</strong></span><span>{session.running ? `${Math.floor(session.elapsedMs / 60_000)}:${String(Math.floor((session.elapsedMs % 60_000) / 1000)).padStart(2, '0')} active` : 'Ready'}</span></div>
       {showKeyboard && <VirtualKeyboard targetKey={session.currentChar || lesson.targetKeys[0]} showFingerGuide={showFingerGuide} onKeySelect={session.handleVirtualKey} />}
     </> : <div className={`lesson-result ${passed ? 'passed' : 'retry'}`}>
