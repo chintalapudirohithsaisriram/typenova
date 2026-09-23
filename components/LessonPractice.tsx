@@ -29,6 +29,13 @@ export default function LessonPractice({ lesson, showKeyboard, showFingerGuide, 
 
   const accuracy = Math.round(session.stats.accuracy);
   const wpm = Math.round(session.stats.netWpm);
+  const lessonChars = Array.from(lesson.exercise);
+  const lessonTypedChars = Array.from(session.value);
+  const lessonCurrentIndex = lessonTypedChars.length;
+  let lessonWordStart = lessonCurrentIndex;
+  let lessonWordEnd = lessonCurrentIndex;
+  while (lessonWordStart > 0 && lessonChars[lessonWordStart - 1] !== ' ') lessonWordStart -= 1;
+  while (lessonWordEnd < lessonChars.length && lessonChars[lessonWordEnd] !== ' ') lessonWordEnd += 1;
   const passed = session.done && [...session.value].length >= [...lesson.exercise].length && accuracy >= lesson.goalAccuracy && wpm >= lesson.goalWpm;
   const finger = FINGER_BY_KEY[session.currentChar.toLowerCase()] ?? lesson.finger;
   const retry = () => {
@@ -80,9 +87,15 @@ export default function LessonPractice({ lesson, showKeyboard, showFingerGuide, 
           aria-label="Lesson typing text"
           aria-describedby="lesson-input-help"
         >
-          {[...lesson.exercise].map((char, index) => {
-            const typedChar = [...session.value][index];
-            return <span key={`${index}-${char}`} className={index < [...session.value].length ? typedChar === char ? 'correct' : 'incorrect' : index === [...session.value].length ? 'current' : ''}>{char}</span>;
+          {lessonChars.map((char, index) => {
+            const typedChar = lessonTypedChars[index];
+            const isActiveWord = index >= lessonWordStart && index < lessonWordEnd && lessonWordStart < lessonWordEnd;
+            const className = [
+              index < lessonTypedChars.length ? (typedChar === char ? 'correct' : 'incorrect') : '',
+              isActiveWord ? 'active-word' : '',
+              index === lessonCurrentIndex ? 'current' : '',
+            ].filter(Boolean).join(' ');
+            return <span key={`${index}-${char}`} className={className} aria-current={index === lessonCurrentIndex ? 'true' : undefined}>{char}</span>;
           })}
         </div>
         <input
