@@ -21,7 +21,8 @@ export default function VirtualKeyboard({ targetKey = '', showFingerGuide = true
   const finger = FINGER_BY_KEY[lookupTarget] ?? '';
   const hand = finger.startsWith('left') ? 'Left hand' : finger.startsWith('right') ? 'Right hand' : target === ' ' ? 'Both thumbs' : 'Both hands';
   const fingerName = finger.replace(/^left |^right /, '');
-  const isShiftTarget = target !== target.toLowerCase() && target !== target.toUpperCase();
+  const isLetterTarget = /^[A-Za-z]$/.test(target);
+  const isShiftTarget = isLetterTarget && target === target.toUpperCase();
   const displayTarget = target === ' ' ? 'Space' : target ? target.toUpperCase() : '—';
 
   const selectKey = (key: string) => {
@@ -32,9 +33,13 @@ export default function VirtualKeyboard({ targetKey = '', showFingerGuide = true
     {showFingerGuide && target && <div className="finger-coach" aria-live="polite">
       <div className="coach-visual" aria-hidden="true">
         <div className={`coach-hand ${hand.startsWith('Left') ? 'left-hand' : hand.startsWith('Right') ? 'right-hand' : 'both-hands'}`}>
-          <span className="finger-shape pinky" /><span className="finger-shape ring" /><span className="finger-shape middle" /><span className="finger-shape index" /><span className="thumb-shape" />
+          <span className={`finger-shape pinky ${fingerName.includes('pinky') ? 'finger-active' : ''}`} />
+          <span className={`finger-shape ring ${fingerName.includes('ring') ? 'finger-active' : ''}`} />
+          <span className={`finger-shape middle ${fingerName.includes('middle') ? 'finger-active' : ''}`} />
+          <span className={`finger-shape index ${fingerName.includes('index') ? 'finger-active' : ''}`} />
+          <span className={`thumb-shape ${fingerName.includes('thumb') ? 'finger-active' : ''}`} />
         </div>
-        <span className="move-line" />
+        <span className="move-line" aria-hidden="true" />
       </div>
       <div className="finger-coach-copy">
         <div className="coach-kicker">Next keystroke</div>
