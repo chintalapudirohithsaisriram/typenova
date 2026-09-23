@@ -131,6 +131,11 @@ export default function TypingTest({
   const seconds = Math.floor((session.elapsedMs % 60_000) / 1000);
   const targetChars = Array.from(target);
   const typedChars = Array.from(session.value);
+  const currentIndex = typedChars.length;
+  let activeWordStart = currentIndex;
+  let activeWordEnd = currentIndex;
+  while (activeWordStart > 0 && targetChars[activeWordStart - 1] !== ' ') activeWordStart -= 1;
+  while (activeWordEnd < targetChars.length && targetChars[activeWordEnd] !== ' ') activeWordEnd += 1;
   const characterResults = targetChars.map((expected, index) => ({
     expected,
     typed: typedChars[index] ?? '',
@@ -295,10 +300,13 @@ export default function TypingTest({
             <div className="prompt" aria-label="Typing text">
               {targetChars.map((char, index) => {
                 const typedChar = typedChars[index];
-                const className = index < typedChars.length
-                  ? typedChar === char ? 'correct' : 'incorrect'
-                  : index === typedChars.length ? 'current' : '';
-                return <span key={`${index}-${char}`} className={className}>{char}</span>;
+                const isActiveWord = index >= activeWordStart && index < activeWordEnd && activeWordStart < activeWordEnd;
+                const className = [
+                  index < typedChars.length ? (typedChar === char ? 'correct' : 'incorrect') : '',
+                  isActiveWord ? 'active-word' : '',
+                  index === currentIndex ? 'current' : '',
+                ].filter(Boolean).join(' ');
+                return <span key={`${index}-${char}`} className={className} aria-current={index === currentIndex ? 'true' : undefined}>{char}</span>;
               })}
             </div>
           ) : (
